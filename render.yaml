@@ -1,14 +1,12 @@
 services:
   - type: web
     name: video-transcribe-backend
-    runtime: python
+    runtime: docker
     region: oregon
     plan: free
-    buildCommand: apt-get update && apt-get install -y ffmpeg && cd backend && pip install -r requirements.txt
-    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: OPENAI_API_KEY
         sync: false
-      - key: PYTHON_VERSION
-        value: "3.11.0"
 

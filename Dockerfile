@@ -18,6 +18,7 @@ COPY backend/ ./backend/
 # Expose port
 EXPOSE 10000
 
-# Start the application
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "10000"]
+# Change to backend directory and start the application
+WORKDIR /app/backend
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]
 

@@ -91,6 +91,15 @@ function Results({ results, onReset }) {
                         {formatTimestamp(frame.timestamp)}
                       </span>
                     </div>
+                    {frame.frame_url && (
+                      <div className="frame-image-container">
+                        <img 
+                          src={`${import.meta.env.VITE_API_URL || '/api'}${frame.frame_url}`} 
+                          alt={`Frame ${frame.frame_number}`}
+                          className="frame-image"
+                        />
+                      </div>
+                    )}
                     <div className="frame-description">
                       {frame.description}
                     </div>

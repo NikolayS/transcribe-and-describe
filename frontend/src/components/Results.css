@@ -149,6 +149,9 @@
   border-radius: 8px;
   border: 1px solid #e2e8f0;
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .frame-item:hover {
@@ -160,9 +163,22 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 2px solid #e2e8f0;
+}
+
+.frame-image-container {
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.frame-image {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .frame-number {

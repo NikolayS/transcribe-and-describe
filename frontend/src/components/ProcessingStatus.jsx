@@ -5,6 +5,8 @@ import './ProcessingStatus.css'
 function ProcessingStatus({ jobId, onComplete, onCancel }) {
   const [status, setStatus] = useState(null)
   const [error, setError] = useState(null)
+  const [logs, setLogs] = useState([])
+  const [showLogs, setShowLogs] = useState(false)
 
   useEffect(() => {
     let intervalId = null
@@ -14,6 +16,16 @@ function ProcessingStatus({ jobId, onComplete, onCancel }) {
         const apiUrl = import.meta.env.VITE_API_URL || '/api'
         const response = await axios.get(`${apiUrl}/status/${jobId}`)
         setStatus(response.data)
+
+        // Also fetch logs if showing logs panel
+        if (showLogs) {
+          try {
+            const logsResponse = await axios.get(`${apiUrl}/logs/${jobId}`)
+            setLogs(logsResponse.data.logs || [])
+          } catch (e) {
+            // Ignore logs fetch errors
+          }
+        }
 
         if (response.data.status === 'completed') {
           clearInterval(intervalId)
@@ -39,7 +51,7 @@ function ProcessingStatus({ jobId, onComplete, onCancel }) {
     return () => {
       if (intervalId) clearInterval(intervalId)
     }
-  }, [jobId, onComplete])
+  }, [jobId, onComplete, showLogs])
 
   const handleCancel = async () => {
     try {
@@ -96,9 +108,29 @@ function ProcessingStatus({ jobId, onComplete, onCancel }) {
         <p>{status.message}</p>
       </div>
 
-      <button className="cancel-button" onClick={handleCancel}>
-        Cancel
-      </button>
+      <div className="action-buttons">
+        <button className="logs-button" onClick={() => setShowLogs(!showLogs)}>
+          {showLogs ? 'Hide logs' : 'Show logs'}
+        </button>
+        <button className="cancel-button" onClick={handleCancel}>
+          Cancel
+        </button>
+      </div>
+
+      {showLogs && (
+        <div className="logs-panel">
+          <h4>Processing logs</h4>
+          <div className="logs-content">
+            {logs.length > 0 ? (
+              logs.map((log, idx) => (
+                <div key={idx} className="log-entry">{log}</div>
+              ))
+            ) : (
+              <div className="log-entry">No logs yet...</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -27,7 +27,9 @@ class VideoProcessor:
         self,
         video_path: Path,
         job_id: str,
-        progress_callback: Optional[Callable] = None
+        frames_output_dir: Path,
+        progress_callback: Optional[Callable] = None,
+        log_callback: Optional[Callable] = None
     ) -> Dict:
         """
         Process video: extract audio, transcribe, extract frames, describe
@@ -55,24 +57,34 @@ class VideoProcessor:
             # Step 1: Check if video has audio and transcribe if present
             if progress_callback:
                 progress_callback(20, "Checking for audio stream")
+            if log_callback:
+                log_callback("Checking for audio stream...")
             
             has_audio = self._check_has_audio(video_path)
             
             if has_audio:
                 if progress_callback:
                     progress_callback(25, "Extracting audio from video")
+                if log_callback:
+                    log_callback("Audio stream detected, extracting...")
                 
                 audio_path = job_temp_dir / "audio.mp3"
                 self._extract_audio(video_path, audio_path)
                 
                 if progress_callback:
                     progress_callback(40, "Transcribing audio")
+                if log_callback:
+                    log_callback("Calling OpenAI Whisper API for transcription...")
                 
                 transcription = await self._transcribe_audio(audio_path)
                 result["transcription"] = transcription
+                if log_callback:
+                    log_callback(f"✓ Transcription complete ({transcription.get('language', 'unknown')})")
             else:
                 if progress_callback:
                     progress_callback(40, "No audio stream found, skipping transcription")
+                if log_callback:
+                    log_callback("No audio stream detected, skipping transcription")
                 result["transcription"] = {
                     "text": "No audio stream found in video",
                     "language": None,
@@ -83,24 +95,35 @@ class VideoProcessor:
             # Step 2: Extract frames
             if progress_callback:
                 progress_callback(50, "Extracting frames from video")
+            if log_callback:
+                log_callback("Extracting frames from video...")
             
-            frames_dir = job_temp_dir / "frames"
-            frames_dir.mkdir(exist_ok=True)
+            # Save frames to persistent location
+            frames_dir = frames_output_dir / job_id
+            frames_dir.mkdir(exist_ok=True, parents=True)
             frame_paths = self._extract_frames(video_path, frames_dir)
+            if log_callback:
+                log_callback(f"✓ Extracted {len(frame_paths)} frames")
             
             # Step 3: Describe frames with LLM
             if progress_callback:
                 progress_callback(60, f"Analyzing {len(frame_paths)} frames with LLM")
+            if log_callback:
+                log_callback(f"Calling GPT-4 Vision API to analyze {len(frame_paths)} frames...")
             
             frame_descriptions = await self._describe_frames(
                 frame_paths,
+                job_id,
                 progress_callback=lambda i, total: progress_callback(
                     60 + int(35 * i / total),
                     f"Analyzing frame {i}/{total}"
-                ) if progress_callback else None
+                ) if progress_callback else None,
+                log_callback=log_callback
             )
             
             result["frames"] = frame_descriptions
+            if log_callback:
+                log_callback(f"✓ All frames analyzed successfully")
             
             if progress_callback:
                 progress_callback(95, "Finalizing results")
@@ -234,7 +257,9 @@ class VideoProcessor:
     async def _describe_frames(
         self,
         frame_paths: List[Path],
-        progress_callback: Optional[Callable] = None
+        job_id: str,
+        progress_callback: Optional[Callable] = None,
+        log_callback: Optional[Callable] = None
     ) -> List[Dict]:
         """Describe frames using OpenAI GPT-4 Vision API"""
         descriptions = []
@@ -244,6 +269,9 @@ class VideoProcessor:
                 # Read and encode image
                 with frame_path.open("rb") as img_file:
                     image_data = base64.b64encode(img_file.read()).decode()
+                
+                if log_callback:
+                    log_callback(f"Analyzing frame {i+1}/{len(frame_paths)}: {frame_path.name}")
                 
                 # Call GPT-4 Vision API (run in thread pool to avoid blocking)
                 response = await asyncio.to_thread(
@@ -274,6 +302,7 @@ class VideoProcessor:
                 descriptions.append({
                     "frame_number": i + 1,
                     "frame_filename": frame_path.name,
+                    "frame_url": f"/frames/{job_id}/{frame_path.name}",
                     "timestamp": i / self.frames_per_second,
                     "description": description
                 })
@@ -282,9 +311,12 @@ class VideoProcessor:
                     progress_callback(i + 1, len(frame_paths))
                 
             except Exception as e:
+                if log_callback:
+                    log_callback(f"✗ Error analyzing frame {i+1}: {str(e)}")
                 descriptions.append({
                     "frame_number": i + 1,
                     "frame_filename": frame_path.name,
+                    "frame_url": f"/frames/{job_id}/{frame_path.name}",
                     "timestamp": i / self.frames_per_second,
                     "description": f"Error: {str(e)}"
                 })
